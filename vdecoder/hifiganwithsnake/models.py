@@ -217,7 +217,7 @@ class SineGen(torch.nn.Module):
         
         if self.onnx:
             with torch.no_grad():
-                f0 = f0[:, None].transpose(1, 2)
+                f0 = f0[:, None].transpose(1, 2).contiguous()
                 f0_buf = torch.zeros(f0.shape[0], f0.shape[1], self.dim, device=f0.device)
                 # fundamental component
                 f0_buf[:, :, 0] = f0[:, :, 0]
@@ -234,16 +234,16 @@ class SineGen(torch.nn.Module):
                 tmp_over_one = torch.cumsum(rad_values, 1)  # % 1  #####%1意味着后面的cumsum无法再优化
                 tmp_over_one *= upp
                 tmp_over_one = F.interpolate(
-                    tmp_over_one.transpose(2, 1),
+                    tmp_over_one.transpose(2, 1).contiguous(),
                     scale_factor=upp,
                     mode="linear",
                     align_corners=True,
                 ).transpose(2, 1)
                 rad_values = F.interpolate(
-                    rad_values.transpose(2, 1), scale_factor=upp, mode="nearest"
+                    rad_values.transpose(2, 1).contiguous(), scale_factor=upp, mode="nearest"
                 ).transpose(
                     2, 1
-                )  #######
+                ).contiguous()  #######
                 tmp_over_one %= 1
                 tmp_over_one_idx = (tmp_over_one[:, 1:, :] - tmp_over_one[:, :-1, :]) < 0
                 cumsum_shift = torch.zeros_like(rad_values)
@@ -383,10 +383,10 @@ class Generator(torch.nn.Module):
     def forward(self, x, f0, g=None):
         # print(1,x.shape,f0.shape,f0[:, None].shape)
         if not self.onnx:
-            f0 = self.f0_upsamp(f0[:, None]).transpose(1, 2)  # bs,n,t
+            f0 = self.f0_upsamp(f0[:, None]).transpose(1, 2).contiguous()  # bs,n,t
         # print(2,f0.shape)
         har_source, noi_source, uv = self.m_source(f0, self.upp)
-        har_source = har_source.transpose(1, 2)
+        har_source = har_source.transpose(1, 2).contiguous()
         x = self.conv_pre(x)
         x = x + self.cond(g)
         # print(124,x.shape,har_source.shape)

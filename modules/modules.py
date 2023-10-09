@@ -30,9 +30,9 @@ class LayerNorm(nn.Module):
     self.beta = nn.Parameter(torch.zeros(channels))
 
   def forward(self, x):
-    x = x.transpose(1, -1)
+    x = x.transpose(1, -1).contiguous()
     x = F.layer_norm(x, (self.channels,), self.gamma, self.beta, self.eps)
-    return x.transpose(1, -1)
+    return x.transpose(1, -1).contiguous()
 
  
 class ConvReluNorm(nn.Module):

@@ -83,7 +83,7 @@ def get_content(cmodel, y):
     with torch.no_grad():
         c = cmodel.extract_features(y.squeeze(1))[0]
     c = c.transpose(1, 2)
-    return c
+    return c.contiguous()
 
 def get_f0_predictor(f0_predictor,hop_length,sampling_rate,**kargs):
     if f0_predictor == "pm":

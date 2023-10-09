@@ -153,7 +153,7 @@ class TextEncoder(nn.Module):
             p_dropout)
 
     def forward(self, x, x_mask, f0=None, noice_scale=1):
-        x = x + self.f0_emb(f0).transpose(1, 2)
+        x = x + self.f0_emb(f0).transpose(1, 2).contiguous()
         x = self.enc_(x * x_mask, x_mask)
         stats = self.proj(x) * x_mask
         m, logs = torch.split(stats, self.out_channels, dim=1)
@@ -461,14 +461,14 @@ class SynthesizerTrn(nn.Module):
         self.character_mix = True
 
     def forward(self, c, f0, uv, spec, g=None, c_lengths=None, spec_lengths=None, vol = None):
-        g = self.emb_g(g).transpose(1,2)
+        g = self.emb_g(g).transpose(1,2).contiguous()
 
         # vol proj
-        vol = self.emb_vol(vol[:,:,None]).transpose(1,2) if vol is not None and self.vol_embedding else 0
+        vol = self.emb_vol(vol[:,:,None]).transpose(1,2).contiguous() if vol is not None and self.vol_embedding else 0
 
         # ssl prenet
         x_mask = torch.unsqueeze(commons.sequence_mask(c_lengths, c.size(2)), 1).to(c.dtype)
-        x = self.pre(c) * x_mask + self.emb_uv(uv.long()).transpose(1,2) + vol
+        x = self.pre(c) * x_mask + self.emb_uv(uv.long()).transpose(1,2).contiguous() + vol
         
         # f0 predict
         if self.use_automatic_f0_prediction:
@@ -506,18 +506,18 @@ class SynthesizerTrn(nn.Module):
             g = g.reshape((g.shape[0], g.shape[1], 1, 1, 1))  # [N, S, B, 1, 1]
             g = g * self.speaker_map  # [N, S, B, 1, H]
             g = torch.sum(g, dim=1) # [N, 1, B, 1, H]
-            g = g.transpose(0, -1).transpose(0, -2).squeeze(0) # [B, H, N]
+            g = g.transpose(0, -1).transpose(0, -2).squeeze(0).contiguous() # [B, H, N]
         else:
             if g.dim() == 1:
                 g = g.unsqueeze(0)
-            g = self.emb_g(g).transpose(1, 2)
+            g = self.emb_g(g).transpose(1, 2).contiguous()
         
         x_mask = torch.unsqueeze(commons.sequence_mask(c_lengths, c.size(2)), 1).to(c.dtype)
         # vol proj
         
-        vol = self.emb_vol(vol[:,:,None]).transpose(1,2) if vol is not None and self.vol_embedding else 0
+        vol = self.emb_vol(vol[:,:,None]).transpose(1,2).contiguous() if vol is not None and self.vol_embedding else 0
 
-        x = self.pre(c) * x_mask + self.emb_uv(uv.long()).transpose(1, 2) + vol
+        x = self.pre(c) * x_mask + self.emb_uv(uv.long()).transpose(1, 2).contiguous() + vol
 
         
         if self.use_automatic_f0_prediction and predict_f0:
