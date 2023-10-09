@@ -180,6 +180,7 @@ class TextAudioCollate:
             volume = row[6]
             if volume is not None:
                 volume_padded[i, :volume.size(0)] = volume
+                volume_padded = volume_padded.contiguous()
             else :
                 volume_padded = None
-        return c_padded, f0_padded, spec_padded, wav_padded, spkids, lengths, uv_padded, volume_padded
+        return c_padded.contiguous(), f0_padded.contiguous(), spec_padded.contiguous(), wav_padded.contiguous(), spkids.contiguous(), lengths.contiguous(), uv_padded.contiguous(), volume_padded
