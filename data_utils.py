@@ -4,11 +4,13 @@ import random
 import numpy as np
 import torch
 import torch.utils.data
+import librosa
 
 import utils
 from modules.mel_processing import spectrogram_torch
 from utils import load_filepaths_and_text, load_wav_to_torch
-
+from data_aug_utils.utils import fixed_formant_f0, random_formant_f0, random_eq
+from vencoder.MFCC import MFCC
 # import h5py
 
 
@@ -37,6 +39,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         self.spk_map = hparams.spk
         self.vol_emb = hparams.model.vol_embedding
         self.vol_aug = hparams.train.vol_aug and vol_aug
+        self.MFCC = MFCC(sample_rate=self.sampling_rate, hop_length=self.hop_length, win_length=self.win_length)
         random.seed(1234)
         random.shuffle(self.audiopaths)
         
@@ -73,7 +76,31 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         f0 = torch.FloatTensor(np.array(f0,dtype=float))
         uv = torch.FloatTensor(np.array(uv,dtype=float))
 
-        c = torch.load(filename+ ".soft.pt")
+        audio_norm_aug = audio_norm.numpy()
+        audio_norm_aug = random_eq(audio_norm_aug, self.sampling_rate)
+        # 创建一个包含三个选项的列表
+        options = ["option1", "option2", "option3"]
+
+        # 使用random.choice从列表中随机选择一个元素
+        chosen_option = random.choice(options)
+
+        # 根据选择的选项执行不同的操作
+        try:
+            if chosen_option == "option1":
+                try:
+                    audio_norm_aug = random_formant_f0(audio_norm_aug, self.sampling_rate)
+                except:
+                    audio_norm_aug = fixed_formant_f0(audio_norm_aug, self.sampling_rate)
+            elif chosen_option == "option2":
+                audio_norm_aug = fixed_formant_f0(audio_norm_aug, self.sampling_rate)
+        except:
+            audio_norm_aug = audio_norm_aug
+            
+        # MFCC
+        c = self.MFCC.encoder(audio_norm_aug)
+        # mfcc = librosa.feature.mfcc(y=audio_norm_aug, sr=self.sampling_rate, n_mfcc=self.hparams.model.ssl_dim)\
+
+        # c = torch.load(filename+ ".soft.pt")
         c = utils.repeat_expand_2d(c.squeeze(0), f0.shape[0], mode=self.unit_interpolate_mode)
         if self.vol_emb:
             volume_path = filename + ".vol.npy"

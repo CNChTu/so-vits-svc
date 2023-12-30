@@ -28,16 +28,10 @@ hop_length = hps.data.hop_length
 speech_encoder = hps["model"]["speech_encoder"]
 
 
-def process_one(filename, hmodel, f0p, device, diff=False, mel_extractor=None):
+def process_one(filename, f0p, device, diff=False, mel_extractor=None):
     wav, sr = librosa.load(filename, sr=sampling_rate)
     audio_norm = torch.FloatTensor(wav)
-    audio_norm = audio_norm.unsqueeze(0)
-    soft_path = filename + ".soft.pt"
-    if not os.path.exists(soft_path):
-        wav16k = librosa.resample(wav, orig_sr=sampling_rate, target_sr=16000)
-        wav16k = torch.from_numpy(wav16k).to(device)
-        c = hmodel.encoder(wav16k)
-        torch.save(c.cpu(), soft_path)
+    audio_norm = audio_norm.unsqueeze(0).to(device)
 
     f0_path = filename + ".f0.npy"
     if not os.path.exists(f0_path):
@@ -111,10 +105,10 @@ def process_batch(file_chunk, f0p, diff=False, mel_extractor=None, device="cpu")
         gpu_id = rank % torch.cuda.device_count()
         device = torch.device(f"cuda:{gpu_id}")
     logger.info(f"Rank {rank} uses device {device}")
-    hmodel = utils.get_speech_encoder(speech_encoder, device=device)
-    logger.info(f"Loaded speech encoder for rank {rank}")
+    # hmodel = utils.get_speech_encoder(speech_encoder, device=device)
+    # logger.info(f"Loaded speech encoder for rank {rank}")
     for filename in tqdm(file_chunk, position = rank):
-        process_one(filename, hmodel, f0p, device, diff, mel_extractor)
+        process_one(filename, f0p, device, diff, mel_extractor)
 
 def parallel_process(filenames, num_processes, f0p, diff, mel_extractor, device):
     with ProcessPoolExecutor(max_workers=num_processes) as executor:
@@ -140,7 +134,7 @@ if __name__ == "__main__":
         '--f0_predictor', type=str, default="rmvpe", help='Select F0 predictor, can select crepe,pm,dio,harvest,rmvpe,fcpe|default: pm(note: crepe is original F0 using mean filter)'
     )
     parser.add_argument(
-        '--num_processes', type=int, default=1, help='You are advised to set the number of processes to the same as the number of CPU cores'
+        '--num_processes', type=int, default=5, help='You are advised to set the number of processes to the same as the number of CPU cores'
     )
     args = parser.parse_args()
     f0p = args.f0_predictor
